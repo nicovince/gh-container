@@ -1,35 +1,48 @@
 #!/usr/bin/env bash
 set -e
 
-echo "Hello gh-container!"
+function help()
+{
+    cat <<EOF
+Manage packages of type container posted to ghcr.io
+Usage:
+  gh container <command>
+Commands:
+  list :     List packages of type container
+  versions : List versions of a container package
+EOF
+}
 
-# Snippets to help get started:
+HDR_ACCEPT='Accept: application/vnd.github+json'
+HDR_API_VERSION='X-GitHub-Api-Version: 2022-11-28'
 
-# Determine if an executable is in the PATH
-# if ! type -p ruby >/dev/null; then
-#   echo "Ruby not found on the system" >&2
-#   exit 1
-# fi
+function list_packages()
+{
+    gh api -H "${HDR_ACCEPT}" -H "${HDR_API_VERSION}" \
+        /user/packages?package_type=container \
+        --jq '.[] | .name'
+}
 
-# Pass arguments through to another command
-# gh issue list "$@" -R cli/cli
+PARAMS=""
+while [ $# -gt 0 ]; do
+    key="$1"
+    case ${key} in
+        -h|--help)
+            help
+            exit 0
+            ;;
+        -v)
+            echo verbose
+            ;;
+        *)
+            PARAMS+=" $1"
+            ;;
+    esac
+    shift
+done
+eval set -- "${PARAMS}"
+ACTION="$1"
 
-# Using the gh api command to retrieve and format information
-# QUERY='
-#   query($endCursor: String) {
-#     viewer {
-#       repositories(first: 100, after: $endCursor) {
-#         nodes {
-#           nameWithOwner
-#           stargazerCount
-#         }
-#       }
-#     }
-#   }
-# '
-# TEMPLATE='
-#   {{- range $repo := .data.viewer.repositories.nodes -}}
-#     {{- printf "name: %s - stargazers: %v\n" $repo.nameWithOwner $repo.stargazerCount -}}
-#   {{- end -}}
-# '
-# exec gh api graphql -f query="${QUERY}" --paginate --template="${TEMPLATE}"
+if [ "${ACTION}" == "list" ]; then
+    list_packages
+fi
