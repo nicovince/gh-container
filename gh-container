@@ -46,6 +46,26 @@ EOF
 HDR_ACCEPT='Accept: application/vnd.github+json'
 HDR_API_VERSION='X-GitHub-Api-Version: 2022-11-28'
 
+function get_login()
+{
+    gh auth status 2>&1 | grep "Logged in" | sed 's/.*as \([a-zA-Z.-_]\+\).*/\1/'
+}
+
+function delete_user_pkg_version()
+{
+    local username
+    local pkg_name
+    local pkg_version
+
+    username="$1"
+    pkg_name="$2"
+    pkg_version="$3"
+
+    echo gh api -H "${HDR_ACCEPT}" -H "${HDR_API_VERSION}" \
+        --method DELETE \
+        /users/${username}/packages/${PKG_TYPE}/${pkg_name}/versions/${pkg_version}
+}
+
 function list_packages()
 {
     gh api -H "${HDR_ACCEPT}" -H "${HDR_API_VERSION}" \
@@ -56,6 +76,7 @@ function list_packages()
 function clean()
 {
     local params
+    local username
     local pkg_name
     local pkg_version_id
 
@@ -72,12 +93,11 @@ function clean()
         shift
     done
     eval set -- "${params}"
+    username="$(get_login)"
     pkg_name="$1"
     pkg_version_id="$2"
     echo "clean ${pkg_name} ${pkg_version_id}"
-    echo gh api -H "${HDR_ACCEPT}" -H "${HDR_API_VERSION}" \
-        --method DELETE \
-        /users/USERNAME/packages/PACKAGE_TYPE/PACKAGE_NAME/versions/PACKAGE_VERSION_ID
+    delete_user_pkg_version "${username}" "${pkg_name}" "${pkg_version_id}"
 }
 
 function list_versions()
