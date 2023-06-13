@@ -195,4 +195,7 @@ elif [ "${ACTION}" == "versions" ]; then
     list_versions $@
 elif [ "${ACTION}" == "clean" ]; then
     clean $@
+else
+    echo "Error: Unknown action"
+    exit 1
 fi
