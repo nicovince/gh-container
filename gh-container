@@ -110,6 +110,11 @@ function clean()
     eval set -- "${params}"
     username="$(get_login)"
     pkg_name="$1"
+    if [ -z "${pkg_name}" ]; then
+        echo "Error: Missing package name"
+        help_clean
+        exit 1
+    fi
     if [ ${untagged} -eq 0 ]; then
         pkg_version_ids="$2"
     else
