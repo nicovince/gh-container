@@ -82,50 +82,6 @@ function list_packages()
         --jq '.[] | .name'
 }
 
-function clean()
-{
-    local params
-    local username
-    local pkg_name
-    local pkg_version_ids
-    local untagged
-
-    untagged=0
-
-    while [ $# -gt 0 ]; do
-        case $1 in
-            -h|--help)
-                help_clean
-                exit 0
-                ;;
-            -u|--untagged)
-                untagged=1
-                ;;
-            *)
-                params+=" $1"
-                ;;
-        esac
-        shift
-    done
-    eval set -- "${params}"
-    username="$(get_login)"
-    pkg_name="$1"
-    if [ -z "${pkg_name}" ]; then
-        echo "Error: Missing package name"
-        help_clean
-        exit 1
-    fi
-    if [ ${untagged} -eq 0 ]; then
-        pkg_version_ids="$2"
-    else
-        pkg_version_ids=$(list_versions --untagged "${pkg_name}" | awk '{print $1}' | sed 1d)
-    fi
-    for pkg_id in ${pkg_version_ids}; do
-        echo "clean ${pkg_name} ${pkg_id}"
-        delete_user_pkg_version "${username}" "${pkg_name}" "${pkg_id}"
-    done
-}
-
 function list_versions()
 {
     local pkg_name
@@ -173,6 +129,75 @@ function list_versions()
         --jq "${query}" | column -ts $'\t'
 }
 
+function get_first_arg()
+{
+    echo "$@" | awk '{print $1}'
+}
+
+function browse()
+{
+    local titles
+    local fields
+
+    titles='["NAME", "ID"]'
+    fields='[.name, .id]'
+    query="(${titles}), (.[] | ${fields}) | @tsv"
+    export -f get_first_arg
+    export -f list_versions
+    export PKG_TYPE
+    export HDR_ACCEPT
+    export HDR_API_VERSION
+    export FZF_DEFAULT_COMMAND="gh api -H '${HDR_ACCEPT}' -H '${HDR_API_VERSION}' \
+        /user/packages?package_type=${PKG_TYPE} --jq '${query}' | column -ts $'\t'"
+    fzf --header-lines=1 \
+        --bind "ctrl-e:reload#list_versions lilypond-action#"
+}
+
+
+function clean()
+{
+    local params
+    local username
+    local pkg_name
+    local pkg_version_ids
+    local untagged
+
+    untagged=0
+
+    while [ $# -gt 0 ]; do
+        case $1 in
+            -h|--help)
+                help_clean
+                exit 0
+                ;;
+            -u|--untagged)
+                untagged=1
+                ;;
+            *)
+                params+=" $1"
+                ;;
+        esac
+        shift
+    done
+    eval set -- "${params}"
+    username="$(get_login)"
+    pkg_name="$1"
+    if [ -z "${pkg_name}" ]; then
+        echo "Error: Missing package name"
+        help_clean
+        exit 1
+    fi
+    if [ ${untagged} -eq 0 ]; then
+        pkg_version_ids="$2"
+    else
+        pkg_version_ids=$(list_versions --untagged "${pkg_name}" | awk '{print $1}' | sed 1d)
+    fi
+    for pkg_id in ${pkg_version_ids}; do
+        echo "clean ${pkg_name} ${pkg_id}"
+        delete_user_pkg_version "${username}" "${pkg_name}" "${pkg_id}"
+    done
+}
+
 PARAMS=""
 while [ $# -gt 0 ]; do
     key="$1"
@@ -181,7 +206,7 @@ while [ $# -gt 0 ]; do
             help
             exit 0
             ;;
-        list|versions|clean)
+        list|versions|clean|browse)
             ACTION="$1"
             ;;
         *)
@@ -200,6 +225,8 @@ elif [ "${ACTION}" == "versions" ]; then
     list_versions $@
 elif [ "${ACTION}" == "clean" ]; then
     clean $@
+elif [ "${ACTION}" == "browse" ]; then
+    browse $@
 else
     echo "Error: Unknown action"
     exit 1
