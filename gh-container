@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -e
 PKG_TYPE="container"
+SCRIPT="$(realpath "$0")"
 
 function help()
 {
@@ -28,7 +29,17 @@ Usage:
 Flags:
   -u, --untagged     Show only versions which do not have any tags
   --tagged           Show only versions which have a tag
+  --show-pkg-name    Show column with package name
   -h, --help         Show this help and exit
+EOF
+}
+
+function help_browse()
+{
+    cat <<EOF
+Browse with fzf through verion of a package
+Usage:
+  gh container browse <package name>
 EOF
 }
 
@@ -90,9 +101,11 @@ function list_versions()
     local params
     local untagged_only
     local tagged_only
+    local show_pkg_name
 
     untagged_only=0
     tagged_only=0
+    show_pkg_name=0
 
     while [ $# -gt 0 ]; do
         case $1 in
@@ -106,6 +119,9 @@ function list_versions()
             --tagged)
                 tagged_only=1
                 ;;
+            --show-pkg-name)
+                show_pkg_name=1
+                ;;
             *)
                 params+=" $1"
                 ;;
@@ -115,13 +131,20 @@ function list_versions()
     eval set -- "${params}"
     pkg_name="$1"
 
-    titles='["ID", "SHA256", "LAST UPDATE", "TAGS"]'
-    if [ ${untagged_only} -eq 1 ]; then
-        query="(${titles}), (.[] | select(.metadata.container.tags | length == 0) | [.id, .name, .updated_at, (.metadata.container.tags | join(\" \"))]) | @tsv"
-    elif [ ${tagged_only} -eq 1 ]; then
-        query="(${titles}), (.[] | select(.metadata.container.tags | length != 0) | [.id, .name, .updated_at, (.metadata.container.tags | join(\" \"))]) | @tsv"
+    if [ ${show_pkg_name} -eq 0 ]; then
+        titles='["ID", "SHA256", "LAST UPDATE", "TAGS"]'
+        fields='.id, .name, .updated_at, (.metadata.container.tags | join (" "))'
     else
-        query="(${titles}), (.[] | [.id, .name, .updated_at, (.metadata.container.tags | join(\" \"))]) | @tsv"
+        titles='["PKG NAME", "ID", "SHA256", "LAST UPDATE", "TAGS"]'
+        fields="\"${pkg_name}\", "
+        fields+='.id, .name, .updated_at, (.metadata.container.tags | join (" "))'
+    fi
+    if [ ${untagged_only} -eq 1 ]; then
+        query="(${titles}), (.[] | select(.metadata.container.tags | length == 0) | [${fields}]) | @tsv"
+    elif [ ${tagged_only} -eq 1 ]; then
+        query="(${titles}), (.[] | select(.metadata.container.tags | length != 0) | [${fields}]) | @tsv"
+    else
+        query="(${titles}), (.[] | [${fields}]) | @tsv"
     fi
 
     gh api -H "${HDR_ACCEPT}" -H "${HDR_API_VERSION}" \
@@ -136,21 +159,39 @@ function get_first_arg()
 
 function browse()
 {
+    local params
     local titles
     local fields
+    local pkg_name
+
+    while [ $# -gt 0 ]; do
+        case $1 in
+            -h|--help)
+                help_browse
+                exit 0
+                ;;
+            *)
+                params+=" $1"
+                ;;
+        esac
+        shift
+    done
+    eval set -- "${params}"
+    pkg_name="$1"
 
     titles='["NAME", "ID"]'
     fields='[.name, .id]'
     query="(${titles}), (.[] | ${fields}) | @tsv"
-    export -f get_first_arg
     export -f list_versions
     export PKG_TYPE
     export HDR_ACCEPT
     export HDR_API_VERSION
-    export FZF_DEFAULT_COMMAND="gh api -H '${HDR_ACCEPT}' -H '${HDR_API_VERSION}' \
-        /user/packages?package_type=${PKG_TYPE} --jq '${query}' | column -ts $'\t'"
-    fzf --header-lines=1 \
-        --bind "ctrl-e:reload#list_versions lilypond-action#"
+    export FZF_DEFAULT_COMMAND="list_versions ${pkg_name} --show-pkg-name"
+    fzf \
+        --bind "ctrl-r:reload#${FZF_DEFAULT_COMMAND}#" \
+        --bind "ctrl-x:execute#echo {} | awk '{print $2}' | xargs ${SCRIPT} clean #" \
+        --bind "ctrl-x:+reload#${FZF_DEFAULT_COMMAND}#" \
+        --header-lines=1
 }
 
 
