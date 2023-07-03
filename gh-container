@@ -43,6 +43,11 @@ Usage:
 EOF
 }
 
+FZF_BROWSE_HELP="ctrl-h show this help or hide it.
+ctrl-r: Reload list of packages versions
+ctrl-x: Delect selected versions
+"
+
 function help_clean()
 {
     cat <<EOF
@@ -83,7 +88,7 @@ function delete_user_pkg_version()
 
     gh api -H "${HDR_ACCEPT}" -H "${HDR_API_VERSION}" \
         --method DELETE \
-        /users/${username}/packages/${PKG_TYPE}/${pkg_name}/versions/${pkg_version}
+        "/users/${username}/packages/${PKG_TYPE}/${pkg_name}/versions/${pkg_version}"
 }
 
 function list_packages()
@@ -148,7 +153,7 @@ function list_versions()
     fi
 
     gh api -H "${HDR_ACCEPT}" -H "${HDR_API_VERSION}" \
-        /user/packages/${PKG_TYPE}/${pkg_name}/versions \
+        "/user/packages/${PKG_TYPE}/${pkg_name}/versions" \
         --jq "${query}" | column -ts $'\t'
 }
 
@@ -188,9 +193,12 @@ function browse()
     export HDR_API_VERSION
     export FZF_DEFAULT_COMMAND="list_versions ${pkg_name} --show-pkg-name"
     fzf \
+        --bind "ctrl-h:toggle-preview" --preview "echo '${FZF_BROWSE_HELP}'" --preview-window hidden \
         --bind "ctrl-r:reload#${FZF_DEFAULT_COMMAND}#" \
         --bind "ctrl-x:execute#echo {} | awk '{print $2}' | xargs ${SCRIPT} clean #" \
         --bind "ctrl-x:+reload#${FZF_DEFAULT_COMMAND}#" \
+        --preview-window=down,$(echo "${FZF_BROWSE_HELP}" | wc -l) \
+        --color preview-bg:#222222 \
         --header-lines=1
 }
 
