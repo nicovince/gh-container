@@ -13,6 +13,7 @@ Commands:
   list           List packages of type container
   versions       List versions of a container package
   clean          Clean untagged versions a container package
+  browse         Browse versions of a container package with fzf
 
 Flags:
   -h, --help Show this help and exit
@@ -34,19 +35,23 @@ Flags:
 EOF
 }
 
+FZF_BROWSE_HELP="ctrl-h show this help or hide it.
+ctrl-r: Reload list of packages versions
+ctrl-x: Delete selected versions
+"
+
 function help_browse()
 {
     cat <<EOF
 Browse with fzf through verion of a package
 Usage:
   gh container browse <package name>
+
+Actions:
+  From within fzf, multiple bindings are available:
+$(echo "${FZF_BROWSE_HELP}" | sed '/^$/d' | sed 's/^/    /')
 EOF
 }
-
-FZF_BROWSE_HELP="ctrl-h show this help or hide it.
-ctrl-r: Reload list of packages versions
-ctrl-x: Delect selected versions
-"
 
 function help_clean()
 {

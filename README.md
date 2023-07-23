@@ -24,4 +24,4 @@ gh container clean my-package-name --untagged
 ```
 
 > Your Github Token must have the `delete:package` permission in order to perform the `clean` action.  
-> The clean action fails from a github action, you may with to use [actions/delete-package-versions](https://github.com/actions/delete-package-versions)
+> The clean action fails from a github action, you may wish to use [actions/delete-package-versions](https://github.com/actions/delete-package-versions)
